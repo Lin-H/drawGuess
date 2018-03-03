@@ -1,0 +1,26 @@
+body {
+    font-family: 'miscro YaHei';
+    background-color: #ddd;
+}
+.buttons {
+    width: 600px;
+    margin: auto;
+    display: flex;
+    justify-content: space-between;
+}
+#paint {
+    position: relative;
+}
+#canvas {
+    background-color: #fff;
+    margin: auto;
+    display: block;
+}
+.tmpCanvas {
+    position: absolute;
+    margin: auto;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
