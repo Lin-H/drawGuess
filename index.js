@@ -4,6 +4,7 @@ var app = express();
 var WebSocketServer = require('uws').Server;
 
 var wss = new WebSocketServer({ port: 3000 });
+var clients = []
 
 // http://expressjs.com/en/starter/static-files.html
 app.use(express.static('public'));
@@ -16,11 +17,26 @@ app.get("/", function (request, response) {
 
 wss.on('connection', function(ws) {
     ws.on('message', onMessage);
-    ws.send('something');
 });
 
 function onMessage(message) {
     console.log('received: ' + message);
+    let msg = JSON.parse(message)
+    switch(msg.type) {
+        case 'I draw':
+            clients.push({type: 'draw', client: this});break
+        case 'I guess':
+            clients.push({type: 'guess', client: this});break
+        case 'sync':
+            broadcast(msg)
+    }
+}
+function broadcast(msg) {
+    clients.forEach(e => {
+        if (e.type == 'guess') {
+            e.client.send(JSON.stringify(msg))
+        }
+    })
 }
 
 // listen for requests :)

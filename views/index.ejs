@@ -9,6 +9,8 @@
 </head>
 <body>
     <div class="buttons">
+		<button onclick="draw.IDraw()">我画</button>
+		<button onclick="draw.IGuess()">我猜</button>
         <button onclick="draw.clear()">清除</button>
         <button onclick="draw.setStroke('blue')">蓝色</button>
         <button onclick="draw.setStroke('red')">红色</button>
@@ -18,92 +20,112 @@
         <canvas id="canvas" height="600" width="600"></canvas>
     </div>
 <script>
+var FLAG = 1
 var ws = new WebSocket('ws://localhost:3000')
 ws.onmessage = function(event) {
-    console.log(`receive ${event.data}`)
+	let msg = JSON.parse(event.data)
+	switch(msg.type) {
+		case 'sync':
+			draw.draw(msg.points)
+	}
 }
 ws.onopen = function(event) {
     console.log('connect')
-    ws.send('from client')
 }
 
 var draw = new Draw(ws)
 
 function Draw() {
     var canvas = this.canvas = document.getElementById('canvas')
-    var paint = document.getElementById('paint');
+    var paint = document.getElementById('paint')
     var offsetX = canvas.offsetLeft
     var offsetY = canvas.offsetTop
     var ctx = this.ctx = canvas.getContext('2d')
-    var tmpCanvas = document.createElement('canvas'); // 临时画布
+    var tmpCanvas = this.tmpCanvas = document.createElement('canvas') // 临时画布
     tmpCanvas.className = 'tmpCanvas'
     tmpCanvas.width = canvas.width
     tmpCanvas.height = canvas.height
-    paint.appendChild(tmpCanvas);
-    var tmpCtx = this.tmpCtx = tmpCanvas.getContext('2d');
-    var ppts = []; // 画笔轨迹
+    paint.appendChild(tmpCanvas)
+    var tmpCtx = this.tmpCtx = tmpCanvas.getContext('2d')
+    var ppts = this.ppts = []; // 画笔轨迹
     var mouse = {x: 0, y: 0}; // 当前画笔点
     tmpCtx.strokeStyle = '#f00'
     tmpCtx.lineWidth = 2.0
-    tmpCtx.lineJoin = 'round';
-    tmpCtx.lineCap = 'round';
+    tmpCtx.lineJoin = 'round'
+	tmpCtx.lineCap = 'round'
+
     tmpCanvas.addEventListener('mousedown', function(e) {
-		tmpCanvas.addEventListener('mousemove', startDraw, false);
-		mouse.x = typeof e.offsetX !== 'undefined' ? e.offsetX : e.layerX;
-		mouse.y = typeof e.offsetY !== 'undefined' ? e.offsetY : e.layerY;
-		ppts.push({x: mouse.x, y: mouse.y});
-		startDraw();
-	}, false);
+		tmpCanvas.addEventListener('mousemove', startDraw, false)
+		mouse.x = typeof e.offsetX !== 'undefined' ? e.offsetX : e.layerX
+		mouse.y = typeof e.offsetY !== 'undefined' ? e.offsetY : e.layerY
+		ppts.push({x: mouse.x, y: mouse.y})
+		startDraw(e)
+	}, false)
 
 	tmpCanvas.addEventListener('mouseup', function() {
-		tmpCanvas.removeEventListener('mousemove', startDraw, false);
+		tmpCanvas.removeEventListener('mousemove', startDraw, false)
 		// Writing down to real canvas now
-		ctx.drawImage(tmpCanvas, 0, 0);
+		ctx.drawImage(tmpCanvas, 0, 0)
 		// Clearing tmp canvas
-		tmpCtx.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+		tmpCtx.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height)
 		// 清除轨迹
 		ppts = [];
 	}, false);
 
-    tmpCanvas.addEventListener('mousemove', function(e) {
-		mouse.x = typeof e.offsetX !== 'undefined' ? e.offsetX : e.layerX;
-		mouse.y = typeof e.offsetY !== 'undefined' ? e.offsetY : e.layerY;
-	}, false);
     function startDraw(e) {
-        // Saving all the points in an array
+		mouse.x = typeof e.offsetX !== 'undefined' ? e.offsetX : e.layerX
+		mouse.y = typeof e.offsetY !== 'undefined' ? e.offsetY : e.layerY
+		// Saving all the points in an array
 		ppts.push({x: mouse.x, y: mouse.y});
-		if (ppts.length < 3) {
-			var b = ppts[0];
-			tmpCtx.beginPath();
-			tmpCtx.arc(b.x, b.y, tmpCtx.lineWidth / 2, 0, Math.PI * 2, !0);
-			tmpCtx.fill();
-			tmpCtx.closePath();
-			return;
+		doDraw(ppts)
+		ws.send(JSON.stringify({type: 'sync', points: ppts}))
+	}
+	function doDraw(points) {
+		if (points.length < 3) {
+			var b = points[0]
+			tmpCtx.beginPath()
+			tmpCtx.arc(b.x, b.y, tmpCtx.lineWidth / 2, 0, Math.PI * 2, !0)
+			tmpCtx.fill()
+			tmpCtx.closePath()
+			return
 		}
 		// Tmp canvas is always cleared up before drawing.
-		tmpCtx.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height);
-		tmpCtx.beginPath();
-		tmpCtx.moveTo(ppts[0].x, ppts[0].y);
-		for (var i = 1; i < ppts.length - 2; i++) {
-			var c = (ppts[i].x + ppts[i + 1].x) / 2;
-			var d = (ppts[i].y + ppts[i + 1].y) / 2;
-			tmpCtx.quadraticCurveTo(ppts[i].x, ppts[i].y, c, d);
+		tmpCtx.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height)
+		tmpCtx.beginPath()
+		tmpCtx.moveTo(points[0].x, points[0].y)
+		for (var i = 1; i < points.length - 2; i++) {
+			var c = (points[i].x + points[i + 1].x) / 2
+			var d = (points[i].y + points[i + 1].y) / 2
+			tmpCtx.quadraticCurveTo(points[i].x, points[i].y, c, d)
 		}
 		// last 2 points
 		tmpCtx.quadraticCurveTo(
-			ppts[i].x,
-			ppts[i].y,
-			ppts[i + 1].x,
-			ppts[i + 1].y
+			points[i].x,
+			points[i].y,
+			points[i + 1].x,
+			points[i + 1].y
 		);
 		tmpCtx.stroke();
-    }
+	}
+	this.draw = function(points) {
+		doDraw(points)
+		ctx.drawImage(tmpCanvas, 0, 0);
+		tmpCtx.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+	}
 }
 Draw.prototype.setStroke = function(color) {
-    this.tmpCtx.strokeStyle = color
+	this.tmpCtx.strokeStyle = color
+	this.tmpCtx.fillStyle = color
 }
 Draw.prototype.clear = function() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+}
+Draw.prototype.IGuess = function() {
+	this.tmpCanvas.style.pointerEvents = 'none'
+	ws.send(JSON.stringify({type: 'I guess'}))
+}
+Draw.prototype.IDraw = function() {
+	ws.send(JSON.stringify({type: 'I draw'}))
 }
 
 </script>
