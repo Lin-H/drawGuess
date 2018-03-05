@@ -26,7 +26,9 @@ ws.onmessage = function(event) {
 	let msg = JSON.parse(event.data)
 	switch(msg.type) {
 		case 'sync':
-			draw.draw(msg.points)
+			draw.draw(msg.points);break
+		case 'syncEnd':
+			draw.endSync()
 	}
 }
 ws.onopen = function(event) {
@@ -68,6 +70,7 @@ function Draw() {
 		ctx.drawImage(tmpCanvas, 0, 0)
 		// Clearing tmp canvas
 		tmpCtx.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height)
+		ws.send(JSON.stringify({type: 'syncEnd'}))
 		// 清除轨迹
 		ppts = [];
 	}, false);
@@ -109,8 +112,6 @@ function Draw() {
 	}
 	this.draw = function(points) {
 		doDraw(points)
-		ctx.drawImage(tmpCanvas, 0, 0);
-		tmpCtx.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height);
 	}
 }
 Draw.prototype.setStroke = function(color) {
@@ -126,6 +127,10 @@ Draw.prototype.IGuess = function() {
 }
 Draw.prototype.IDraw = function() {
 	ws.send(JSON.stringify({type: 'I draw'}))
+}
+Draw.prototype.endSync = function() {
+	this.ctx.drawImage(this.tmpCanvas, 0, 0);
+	this.tmpCtx.clearRect(0, 0, this.tmpCanvas.width, this.tmpCanvas.height);
 }
 
 </script>

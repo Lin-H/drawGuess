@@ -20,7 +20,6 @@ wss.on('connection', function(ws) {
 });
 
 function onMessage(message) {
-    console.log('received: ' + message);
     let msg = JSON.parse(message)
     switch(msg.type) {
         case 'I draw':
@@ -28,10 +27,19 @@ function onMessage(message) {
         case 'I guess':
             clients.push({type: 'guess', client: this});break
         case 'sync':
-            broadcast(msg)
+            broadcast(msg);break
+        case 'syncEnd':
+            syncEnd(msg);break
     }
 }
 function broadcast(msg) {
+    clients.forEach(e => {
+        if (e.type == 'guess') {
+            e.client.send(JSON.stringify(msg))
+        }
+    })
+}
+function syncEnd(msg) {
     clients.forEach(e => {
         if (e.type == 'guess') {
             e.client.send(JSON.stringify(msg))
